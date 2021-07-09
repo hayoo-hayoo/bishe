@@ -3,6 +3,8 @@ import glob
 import platform
 import time
 from PIL import Image
+from click._compat import raw_input
+from flask import Flask, jsonify
 from skimage.feature import hog
 import numpy as np
 import os
@@ -12,19 +14,24 @@ import shutil
 import sys
 
 # 第一个是你的类别   第二个是类别对应的名称   输出结果的时候方便查看
-label_map = {1: 'cat',
-             2: 'chick',
-             3: 'snack',
+import change_size
+from del_file import del_file
+from printname import creatTest
+
+label_map = {1: '1',
+             2: '2',
+             3: '3',
              }
 # 训练集图片的位置
-train_image_path = 'image128'
+train_image_path = 'dataset1'
+
 # 测试集图片的位置
-test_image_path = 'image128'
+test_image_path = 'dataset2'
 
 # 训练集标签的位置
-train_label_path = os.path.join('image128','train.txt')
+train_label_path = os.path.join('dataset1','train.txt')
 # 测试集标签的位置
-test_label_path = os.path.join('image128','train.txt')
+test_label_path = os.path.join('dataset2','test.txt')
 
 image_height = 128
 image_width = 100
@@ -54,6 +61,7 @@ def get_feat(image_list, name_list, label_list, savePath):
             image = np.reshape(image, (image_height, image_width, 3))
         except:
             print('发送了异常，图片大小size不满足要求：',name_list[i])
+            i += 1
             continue
         gray = rgb2gray(image) / 255.0
         # 这句话根据你的尺寸改改
@@ -110,7 +118,23 @@ def mkdir():
 
 
 # 训练和测试
+app = Flask(__name__)
+@app.route('/a')
 def train_and_test():
+    ##############################生成测试集标签
+    #改大小
+    change_size.changeSize()
+    # 打开文件
+    path = "dataset2"
+    dirs = os.listdir(path)
+    # 输出所有文件和文件夹
+    creatTest(path, dirs)
+    mkdir()  # 不存在文件夹就创建
+    shutil.rmtree(train_feat_path)
+    shutil.rmtree(test_feat_path)
+    mkdir()
+    extra_feat()  # 获取特征并保存在文件夹
+    ###############################
     t0 = time.time()
     features = []
     labels = []
@@ -122,13 +146,13 @@ def train_and_test():
         labels.append(data[-1])
     print("Training a Linear LinearSVM Classifier.")
     clf = LinearSVC()
-    clf.fit(features, labels)
+    # clf.fit(features, labels)
     # 下面的代码是保存模型的
-    if not os.path.exists(model_path):
-        os.makedirs(model_path)
-    joblib.dump(clf, model_path + 'model')
+    # if not os.path.exists(model_path):
+    #     os.makedirs(model_path)
+    # joblib.dump(clf, model_path + 'model')
     # 下面的代码是加载模型  可以注释上面的代码   直接进行加载模型  不进行训练
-    # clf = joblib.load(model_path+'model')
+    clf = joblib.load(model_path+'model')
     print("训练之后的模型存放在model文件夹中")
     # exit()
     result_list = []
@@ -151,6 +175,12 @@ def train_and_test():
     print('准确率是： %f' % rate)
     print('耗时是 : %f' % (t1 - t0))
 
+    # 检测完后删除测试集
+    path_data = 'dataset2'
+    del_file(path_data)
+
+    return jsonify({'code': 200, 'message': '成功', 'data': result_list})
+
 
 def write_to_txt(list):
     with open('result.txt', 'w') as f:
@@ -158,9 +188,12 @@ def write_to_txt(list):
     print('每张图片的识别结果存放在result.txt里面')
 
 
+
+
+
 if __name__ == '__main__':
 
-    mkdir()  # 不存在文件夹就创建
+    # mkdir()  # 不存在文件夹就创建
     # need_input = input('是否手动输入各个信息？y/n\n')
 
     # if need_input == 'y':
@@ -169,15 +202,16 @@ if __name__ == '__main__':
     #     train_label_path = input('请输入训练集合标签的位置,如 /home/icelee/train.txt\n')
     #     test_label_path = input('请输入测试集合标签的位置,如 /home/icelee/test.txt\n')
     #     size = int(input('请输入您图片的大小：如64x64，则输入64\n'))
-    if sys.version_info < (3,):
-        need_extra_feat = raw_input('是否需要重新获取特征？y/n\n')
-    else:
-        need_extra_feat = input('是否需要重新获取特征？y/n\n')
+    # if sys.version_info < (3,):
+    #     need_extra_feat = raw_input('是否需要重新获取特征？y/n\n')
+    # else:
+    #     need_extra_feat = input('是否需要重新获取特征？y/n\n')
+    #
+    # if need_extra_feat == 'y':
+    # shutil.rmtree(train_feat_path)
+    # shutil.rmtree(test_feat_path)
+    # mkdir()
+    # extra_feat()  # 获取特征并保存在文件夹
 
-    if need_extra_feat == 'y':
-        shutil.rmtree(train_feat_path)
-        shutil.rmtree(test_feat_path)
-        mkdir()
-        extra_feat()  # 获取特征并保存在文件夹
-
-    train_and_test()  # 训练并预测
+    # train_and_test()  # 训练并预测
+    app.run(host='0.0.0.0', port=5000)

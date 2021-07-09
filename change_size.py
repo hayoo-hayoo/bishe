@@ -11,13 +11,12 @@ def fixed_size(filePath,savePath):
 
 
 def changeSize():
-    filePath = r'E:\pythonDir\tmp\image'
-    destPath = r'E:\pythonDir\tmp\image128'
+    filePath = r'dataset2'
+    destPath = r'dataset2'
     if not os.path.exists(destPath):
         os.makedirs(destPath)
     for root, dirs, files in os.walk(filePath):
         for file in files:
-            if file[-1]=='g':
                 fixed_size(os.path.join(filePath, file), os.path.join(destPath, file))
     print('Done')
 
